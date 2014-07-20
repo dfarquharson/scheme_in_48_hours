@@ -15,6 +15,8 @@ data LispVal = Atom String
              | String String
              | Bool Bool
 
+instance Show LispVal where show = showVal
+
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
@@ -41,12 +43,44 @@ parseAtom = do
                          "#f" -> Bool False
                          _    -> Atom atom
 
+parseList :: Parser LispVal
+parseList = liftM List $ sepBy parseExpr spaces
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+                    head <- endBy parseExpr spaces
+                    tail <- char '.' >> spaces >> parseExpr
+                    return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do
+                char '\''
+                x <- parseExpr
+                return $ List [Atom "quote", x]
+
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
          <|> parseString
          <|> parseNumber
+         <|> parseQuoted
+         <|> do char '('
+                x <- try parseList <|> parseDottedList
+                char ')'
+                return x
 
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
-    Right _ -> "Found value"
+    Right val -> "Found " ++ show val
+
+unwordsList :: [LispVal] -> String
+unwordsList = unwords . map showVal
+
+showVal :: LispVal -> String
+showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Atom name) = name
+showVal (Number contents) = show contents
+showVal (Bool True) = "#t"
+showVal (Bool False) = "#f"
+showVal (List contents) = "(" ++ unwordsList contents ++ ")"
+showVal (DottedList head tail) = "(" ++ unwordsList head ++ " . " ++ showVal tail ++ ")"
