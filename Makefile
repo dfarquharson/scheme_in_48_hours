@@ -1,2 +1,2 @@
 build:
-	ghc -package parsec -o parser parser.hs
+	ghc -package parsec -o scheme scheme.hs
